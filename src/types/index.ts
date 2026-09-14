@@ -7,7 +7,8 @@ export type Screen =
   | 'settings'
   | 'faq'
   | 'privacy'
-  | 'setup';
+  | 'setup'
+  | 'auth';
 
 export type Bank = {
   id: string;

@@ -7,14 +7,16 @@ import {
   Info,
   Landmark,
   Lock,
+  LogOut,
   Phone,
   Radio,
   Shield,
+  User,
   WifiOff,
 } from 'lucide-react';
 import type { Screen } from '@/types';
 import { BANKS } from '@/types';
-import { getSetting, setSetting } from '@/lib/supabase';
+import { supabase, getSetting, setSetting } from '@/lib/supabase';
 
 type Props = {
   onNavigate: (screen: Screen) => void;
@@ -24,11 +26,23 @@ export function SettingsScreen({ onNavigate }: Props) {
   const [selectedBank, setSelectedBank] = useState('sbi');
   const [showBankList, setShowBankList] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
-    getSetting('bank_id')
-      .then((b) => { if (b) setSelectedBank(b); })
-      .catch(() => {});
+    (async () => {
+      try {
+        const b = await getSetting('bank_id');
+        if (b) setSelectedBank(b);
+      } catch { /* silent */ }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || '');
+        setUserName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'User');
+      }
+    })();
   }, []);
 
   const handleBankChange = async (bankId: string) => {
@@ -44,6 +58,17 @@ export function SettingsScreen({ onNavigate }: Props) {
     }
   };
 
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // silent
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   const currentBank = BANKS.find((b) => b.id === selectedBank) || BANKS[0];
 
   return (
@@ -56,6 +81,30 @@ export function SettingsScreen({ onNavigate }: Props) {
       </header>
 
       <div className="px-5 space-y-4">
+        {/* Account */}
+        <div className="animate-fade-in-up">
+          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-1">Account</h2>
+          <div className="rounded-2xl glass p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center flex-shrink-0">
+                <User size={22} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white truncate">{userName}</p>
+                <p className="text-xs text-slate-500 truncate">{userEmail}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/15 text-rose-400 font-semibold text-sm btn-press disabled:opacity-50"
+            >
+              <LogOut size={16} />
+              {signingOut ? 'Signing out...' : 'Sign Out'}
+            </button>
+          </div>
+        </div>
+
         {/* How it works */}
         <div className="animate-fade-in-up">
           <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-1">How Payments Work</h2>

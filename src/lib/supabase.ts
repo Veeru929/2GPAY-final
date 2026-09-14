@@ -13,6 +13,7 @@ export type Transaction = {
   status: 'success' | 'failed' | 'pending';
   mode: 'auto' | 'manual';
   created_at: string;
+  user_id: string;
 };
 
 export type AppSetting = {
@@ -30,7 +31,7 @@ export async function getTransactions(): Promise<Transaction[]> {
   return data as Transaction[];
 }
 
-export async function addTransaction(tx: Omit<Transaction, 'id' | 'created_at'>): Promise<Transaction> {
+export async function addTransaction(tx: Omit<Transaction, 'id' | 'created_at' | 'user_id'>): Promise<Transaction> {
   const { data, error } = await supabase
     .from('transactions')
     .insert(tx)
@@ -61,10 +62,24 @@ export async function getSetting(key: string): Promise<string | null> {
 }
 
 export async function setSetting(key: string, value: string): Promise<void> {
-  const { error } = await supabase
+  const { data: existing } = await supabase
     .from('app_settings')
-    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-  if (error) throw error;
+    .select('id')
+    .eq('key', key)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from('app_settings')
+      .update({ value, updated_at: new Date().toISOString() })
+      .eq('id', existing.id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('app_settings')
+      .insert({ key, value, updated_at: new Date().toISOString() });
+    if (error) throw error;
+  }
 }
 
 export async function getAllSettings(): Promise<Record<string, string>> {
